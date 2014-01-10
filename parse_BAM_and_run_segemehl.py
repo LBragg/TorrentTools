@@ -7,7 +7,7 @@ Created on 10/12/2013
 #! /usr/bin/python
 import argparse
 import os, sys
-from ITBAMIterator import *
+from lib.ITBAMIterator import *
 import random
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -20,8 +20,8 @@ from subprocess import Popen
 from subprocess import Popen, PIPE
 import shlex
 #CONSTANTS
-segemehl_exe = "/opt/segemehl_0_1_6/segemehl_0_1_7/segemehl/segemehl.x"
-path2scripts = "/home/bra427/Projects/IonTorrentBenchmarking/profiling_pipeline/"
+segemehl_exe = "/opt/segemehl_0_1_6/segemehl_0_1_7/segemehl/segemehl.x" ## segemehl should be in the path too. #TODO remove hard-coded location.
+path2scripts = os.path.split(os.path.abspath(sys.argv[0])) #was hardcoded path before, need to check this works
 
 def loadOptions():
 	parser = argparse.ArgumentParser(description='Parse a PGM BAM, generating alignments of a random subset of the reads.') 
@@ -34,7 +34,7 @@ def loadOptions():
 	parser.add_argument("-p", "--pass-sff", dest="skip_bam", action="store_true", required=False, default=False, help="Skip the BAM parsing bit (files already generated)")
 	return parser
 
-# p is a argument parser.
+# p is an argument parser.
 def processOptions(p): 
 	userOpts = vars(p.parse_args())
 	try:
@@ -70,7 +70,6 @@ def generate_formatted_files_from_bam(read_obj, fasta, qual, flow, log):
 	SeqIO.write(record, fasta, "fasta")
 	
 	#adapter information should come from the BAM Parser.
-	#what is the format of these files?
 def create_segemehl_database(output_dir, reference_rle,log):	
 	log.write("Creating segemehl database") 
 	segemehl_ref_db = output_dir + "reference.idx"
@@ -230,19 +229,12 @@ if not opts['skip_bam']:
 	while True:
 		try:
 			read_object = it.get_next_read_obj()
-	#		print read_object.qual
-			
 			groupr = random.random()
 			groupa = None
 			
 			if reads_processed >= read_max:
 				break
-			
-		#	print "Random %0.2f" % (groupr) 
-			
-			##TODO: keeps saying group is 2.		
 			for i in xrange(len(lower_bounds)):
-	#			print "i: %d, GroupR: %0.2f, current bound: %0.2f" %(i, groupr, lower_bounds[i])
 				if groupr < lower_bounds[i]:
 						groupa = i
 						break
@@ -250,7 +242,6 @@ if not opts['skip_bam']:
 				groupa = len(lower_bounds) - 1
 				
 			if(groupa > 0):
-		#		print "Group is %d" % groupa
 				groupa = groupa - 1 #to map it to the files indexes.
 				generate_formatted_files_from_bam(read_object, fasta_files[groupa], qual_files[groupa], flow_files[groupa], log) # Error here
 				reads_processed = reads_processed + 1
@@ -269,13 +260,9 @@ for i in xrange(len(read_subset_dir_names)):
 	output_prefix = read_subset_dir_names[i]
 	output_file_mapped = output_prefix + "/reads_versus_ref.map"
 	output_file_unmapped = output_prefix + "/reads_not_mapping.txt"
-	
 	fasta_file = output_prefix + "/reads.fasta"
-	
 	run_segemehl(fasta_file, output_ref_rle, segemehl_ref_index, output_file_mapped, output_file_unmapped, log)
-	
 	parsed_prefix = output_prefix + "/" + data_name
-	
 	parse_segemehl(output_file_mapped, fasta_file, output_ref_rle, parsed_prefix, log)
 
 		
