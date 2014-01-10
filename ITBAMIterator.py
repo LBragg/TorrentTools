@@ -60,9 +60,8 @@ class ITBAMIterator(object):
         for my_dict in pg:
             if("CL" in my_dict):
                 funCall = my_dict["CL"]
-# TODO : this needs to be reimplemented                
                 if re.search("calibration-file", funCall):
-                    raise Exception("Looks like the file was calibrated against a reference genome!: " + funCall);
+                    raise Exception("Looks like the file was calibrated against a reference genome!: " + funCall); # don't want that for amplicon benchmarking.
                 adapter_re = re.search("\-\-trim-adapter\s([ATGCN]+)", funCall)
                 self.trim_adapter = adapter_re.group(1)
         
@@ -71,8 +70,6 @@ class ITBAMIterator(object):
         if key in self.bamfile.header:
             return self.bamfile.header[key]
 
-
-    # could create an object (or objects) that handles all these things.
     def _processReadHelper(self, flow_it, base_it, last_phase_error, out_of_phase, fs, consumed_bases=0):  # will need to return a special result object, as integers are not mutable.
 
         # both flow_it and base_it are initialised to point to the position of the current unprocessed base.
@@ -93,7 +90,6 @@ class ITBAMIterator(object):
     
             if self.debug: print "Flow value %0.2f, curr flow position: %d, flow base: %s called_bases %d" % (fv_i, flow_it.get_curr_flow(), flow_it.get_curr_base(), bases)
             if(fv_i > 0): 
-                # did it even make sense to launch into that loop considering if they didn't match, it was unnecessary? 
                 for j in range(0, bases - consumed_bases):  # process the bases in the flow-call
                     if(flow_it.get_curr_base() == base_it.get_curr_base()):  # easy, perfect match
                         if self.debug: print "Perfect match"
@@ -115,11 +111,8 @@ class ITBAMIterator(object):
                             used_fp2bc[flow_it.get_curr_flow()] = flow_it.get_curr_base()  # add this one
                         lconsumed_bases += 1  # number of bases used from this flow-call
                      
-                        # this logic needs to be expanded to store stuff.
-                        
                         if self.debug: print "Base it position: %d nuc: %s " % (base_it.get_curr_base_pos(),base_it.get_curr_base())
                         base_it.increment()  # this base was processed.
-                        #print "After incrementing: position: %d nuc: %s " % (base_it.get_curr_base_pos(),base_it.get_curr_base())
                         
                         if base_it.is_finished():  # only break if it is finished.
                             if self.debug: print "Base iterator finished"
@@ -296,8 +289,6 @@ class ITBAMIterator(object):
         comb_seq = self.key_seq + seq #rather do this instead.
         base_it_comb = BaseIterator(comb_seq)
        
-        # ret_val_key = _processReadHelper(flow_it, base_it_key, last_phase_error, out_of_phase, debug, consumed_bases)  # to be determined what the ret value is.
-        # ret_val_insert = _processReadHelper(flow_it, base_it_insert, ret_val_key['lpe'], ret_val_key['oop'], debug, ret_val_key['consumed_bases'])
         self._processReadHelper(flow_it, base_it_comb, last_phase_error, out_of_phase, aligned_fs, consumed_bases)
         #qual values should be a nested list
         aligned_fs.qual = self._qual_values_by_flow(record.qual, aligned_fs)
@@ -312,11 +303,6 @@ class ITBAMIterator(object):
         verbose = False
         key_length = 4
         
-        
-#        if aligned_flow_read_obj.id == "W0U1Z:00081:00233":
-#            verbose = True
-        
-        ##TODO: make sure this all makes sense...
         for fp in aligned_flow_read_obj.used_fp: #this is an array.  
             bc = aligned_flow_read_obj.used_fp_to_bc[fp] #these are the called bases.
             
@@ -333,11 +319,6 @@ class ITBAMIterator(object):
             for nuc in xrange(len(bc)):
                 
                 if(pos_in_seq >= key_length and  fp >= aligned_flow_read_obj.five_prime_clip and pos_in_qual < len(qual)):
-#                    if(pos_in_qual >= len(qual)):
-#                        print "Qual length: %d" % (len(qual))
-#                        print "Insert length: %s " % (aligned_flow_read_obj.insert_size)
-           #         print aligned_flow_read_obj.id    
-                    
                     if(fp == 7 and nuc == 0): #special case, part of the key
                         qual_obj[fp].append("NA")
                         continue
@@ -370,21 +351,5 @@ class ITBAMIterator(object):
         #print record
         return self._processRead(record)
     
-#lets try and run this as main, just to see what is being outputted.
-### OLD MAIN
-# it = ITBAMIterator("/home/bra427/Projects/IonTorrentBenchmarking/sff_files//R_2013_04_22_08_34_21_user_T03-87-Ion_PGM_E_coli_DH10B_Control_400_E_coli_DH10B_400_rerun_4.0.basecaller.bam", False)        
-# 
-# num_objects = 0
-# 
-# while True:
-#     try:
-#         read_object = it.get_next_read_obj()
-#         num_objects = num_objects + 1
-#         print "Processed %d" % (num_objects)
-#         
-#     except StopIteration:
-#         break      
-#         
-        
 if __name__ == '__main__':
     pass
