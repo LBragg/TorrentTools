@@ -24,7 +24,7 @@ class FlowIterator(object):
     def get_prev_positive_flow_pos(self):
         if(self.flow_pos - 1 >= 0):
            for tmp_fp in range(self.flow_pos - 1, 0):
-               if self.get_corrected_value_for_fp(tmp_fp) > 0:
+               if self.get_corrected_value_for_fp(tmp_fp) >= 0.5:
                    return tmp_fp
            else:
                return None 
@@ -34,7 +34,7 @@ class FlowIterator(object):
     def get_next_positive_flow_pos(self):    
        if(self.flow_pos + 1 < len(self.fv)):
            for tmp_fp in range(self.flow_pos + 1, len(self.fv)):
-               if self.get_corrected_value_for_fp(tmp_fp) > 0:
+               if self.get_corrected_value_for_fp(tmp_fp) >= 0.5:
                    return tmp_fp
            else:
               return None
