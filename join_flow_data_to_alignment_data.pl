@@ -8,7 +8,7 @@ use IO::File;
 
 die "Require [main output directory]" if scalar(@ARGV != 1);
 
-sub processAll($$$$$$$$$);
+sub processAll($$$$$$$$$$);
 sub loadFlows($$$$);
 sub processReference($$);
 sub loadSubBases($$);
@@ -50,15 +50,16 @@ while(my $entry = readdir DIR)
 		print "Processing reference dir $fullDirPath\n";
 		processReference($fullDirPath, \%refbase2rle);
 	}
-	elsif($entry =~ /reads_qual\.sql/gi)
-	{
-		print "Found base2qual $fullDirPath\n";
-		$base2qualfile = $fullDirPath;
-	}
+#	elsif($entry =~ /reads_qual\.sql/gi)
+#	{
+#		print "Found base2qual $fullDirPath\n";
+#		$base2qualfile = $fullDirPath;
+#	}
 }
 
+
 #output files might need to be set up here..
-my $output_base2qual = $output_dir."base2qual.txt";
+my $outfile_base2qual = $output_dir."base2qual.txt";
 
 #substitution differences
 my $outfile_sic = $output_dir."substitution_information_complete.txt";
@@ -79,7 +80,7 @@ my $outfile_fvi = $output_dir."flowvalues_insertions_full.txt";
 my $outfile_c = $output_dir."reads_incomplete_extension.txt";
 
 print "Creating output files...\n";
-print "$output_base2qual\n$outfile_sic\n$outfile_fvtl\n$outfile_rsp\n$outfile_cr\n$outfile_fvi\n$outfile_c\n";
+print "$outfile_base2qual\n$outfile_sic\n$outfile_fvtl\n$outfile_rsp\n$outfile_cr\n$outfile_fvi\n$outfile_c\n";
 
 my $outfile_sub_in_complete = IO::File->new($outfile_sic, "w");
 my $outfile_flowvalues_to_len = IO::File->new($outfile_fvtl, "w");
@@ -87,35 +88,25 @@ my $outfile_read_start_pos = IO::File->new($outfile_rsp, "w");
 my $outfile_coverage_rle =  IO::File->new($outfile_cr, "w");
 my $outfile_flow_val_ins = IO::File->new($outfile_fvi, "w");
 my $outfile_cf = IO::File->new($outfile_c, "w");
+my $outfile_b2q = IO::File->new($outfile_base2qual, "w");
 
-#only requires a rename.
-if(! -e $output_base2qual)
-{
-	print "Trying cp $base2qualfile $output_base2qual\n";
-	system("cp $base2qualfile $output_base2qual");
-}
-
-if(! -e $output_base2qual)
-{
-	warn  "It does not look like base2qual copied successfully\n";
-}
 
 foreach my $ref (@subDirToProcess)
 {
 	processAll($ref->[0], $ref->[1],  \%refbase2rle, $outfile_sub_in_complete, $outfile_flowvalues_to_len, 
-		$outfile_read_start_pos, $outfile_coverage_rle, $outfile_flow_val_ins, $outfile_cf);
+		$outfile_read_start_pos, $outfile_coverage_rle, $outfile_flow_val_ins, $outfile_cf, $outfile_b2q);
 }
 
 print "Done";
 
 exit;
 
-sub processAll($$$$$$$$$)
+sub processAll($$$$$$$$$$)
 {
 	#okay what outputs do you need...
 
 	my ($dirPath, $subset, $refbase2rle, $outfile_sub_in_complete, $outfile_flowvalues_to_len,
-                $outfile_read_start_pos, $outfile_coverage_rle, $outfile_flow_val_ins, $outfile_cf ) = @_;
+                $outfile_read_start_pos, $outfile_coverage_rle, $outfile_flow_val_ins, $outfile_cf, $outfile_b2q ) = @_;
 
 	my %corrBases;
 	my %substitutions;
@@ -129,7 +120,7 @@ sub processAll($$$$$$$$$)
 
 	opendir DIR, $dirPath or die "Could not open the subdirectory $dirPath\n";
 
-	my ($corrRLE, $insBases, $subBases, $delBases);
+	my ($corrRLE, $insBases, $subBases, $delBases, $quals);
 
 	foreach my $element (readdir DIR)
 	{
@@ -149,13 +140,23 @@ sub processAll($$$$$$$$$)
 		{
 			$delBases = $dirPath.$element;
 		}
+		elsif ($element =~ /\.qual$/gi)
+		{
+			$quals = $dirPath.$element;
+		}
 	}
 
 	my $flow2basefile = $dirPath."reads.flow";
 	print "Flow to base: $flow2basefile\n";
 
+	my $base_2qual_sub = IO::File->new($quals, "r");
+
+	while(my $line = <$base_2qual_sub>)
+	{
+		$outfile_b2q->write($line);
+	}
+
 	#The RLE bases have already been allocated a flow. Only flows which yield a base are recorded.
-	
         loadCorrRLE($corrRLE, \%corrBases, \%bounds_corr_bases);
 
 	#load only stuff relevant the current directory to process.
@@ -178,7 +179,8 @@ sub processAll($$$$$$$$$)
 			{
 				($f_flow_pos, $f_read_pos, $f_nucleotide, $f_flow_val, $f_usable, $f_oop, $f_called_len) = ("NA")x 7;
 			}
-			my @res = ($s_read_id, $s_rle_pos, $f_read_pos, $f_flow_pos, $s_nucleotide_ref, $s_nucleotide_read, $f_flow_val, $r_real_pos, $s_strand, $r_rle_len, $f_usable, $f_oop, $f_called_len);
+			my @res = ($s_read_id, $s_rle_pos, $f_read_pos, $f_flow_pos, $s_nucleotide_ref, $s_nucleotide_read, 
+				$f_flow_val, $r_real_pos, $s_strand, $r_rle_len, $f_usable, $f_oop, $f_called_len);
 		
 			$outfile_sub_in_complete->print(join("\t", @res)."\n");
 		}

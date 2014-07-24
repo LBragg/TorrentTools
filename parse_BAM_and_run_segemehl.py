@@ -19,9 +19,12 @@ from subprocess import list2cmdline
 from subprocess import Popen
 from subprocess import Popen, PIPE
 import shlex
+
 #CONSTANTS
 segemehl_exe = "/opt/segemehl_0_1_6/segemehl_0_1_7/segemehl/segemehl.x" ## segemehl should be in the path too. #TODO remove hard-coded location.
-path2scripts = os.path.split(os.path.abspath(sys.argv[0])) #was hardcoded path before, need to check this works
+path2scripts = os.path.split(os.path.abspath(sys.argv[0]))[0] + "/" #was hardcoded path before, need to check this works
+
+print path2scripts
 
 def loadOptions():
 	parser = argparse.ArgumentParser(description='Parse a PGM BAM, generating alignments of a random subset of the reads.') 
@@ -32,6 +35,7 @@ def loadOptions():
 	parser.add_argument("-m", "--num-reads-max", dest="read_max", required=False, help="The maximum number of reads to process")
 	parser.add_argument("-s", "--subset-size", dest="sub_size", required=False, help="The number of reads per subset (max)")
 	parser.add_argument("-p", "--pass-sff", dest="skip_bam", action="store_true", required=False, default=False, help="Skip the BAM parsing bit (files already generated)")
+	parser.add_argument("-t", "--terminate", dest="term_before_align", action="store_true", required=False, default=False, help="Terminate before performing sequence indexing and alignment")
 	return parser
 
 # p is an argument parser.
@@ -127,7 +131,12 @@ def prepare_reference_rle(output_dir, dataset_name, reference_file, log):
 	retVal = 0
 	#overall reference
 	if(not os.path.isfile(output_ref_rle) or os.stat(output_ref_rle).st_size < 10): #something went wrong
-		retVal = call([os.path.abspath("/usr/bin/perl"), os.path.abspath(path2scripts + "generate_rle_seq_and_homopolymer_length_file_for_reference_sequence.pl"),os.path.abspath(reference_file), os.path.abspath(reference_prefix)]);
+		path_perl = os.path.abspath("/usr/bin/perl")
+		path_script =  os.path.abspath(path2scripts + "generate_rle_seq_and_homopolymer_length_file_for_reference_sequence.pl")
+		ref_file = os.path.abspath(reference_file)
+		ref_prefix = os.path.abspath(reference_prefix)
+		
+		retVal = call([path_perl, path_script, ref_file, ref_prefix]);
 
 	if(retVal != 0):
 		log.write("Error: Failed to finish generate rle seq and hp length for reference\n");
@@ -162,8 +171,6 @@ data_name = opts['name']
 
 log = open(output_dir + "/" + data_name + ".log", "w")
 
-(output_ref_rle, output_ref_hp_len) = prepare_reference_rle(output_dir, data_name, ref_file, log)
-segemehl_ref_index = create_segemehl_database(output_dir, output_ref_rle, log)
 
 ### We are through the parameter checking.
 # Need to produce FAST out, QUAL out, FLOW out, adapter locations (if any)
@@ -175,12 +182,12 @@ print "Num reads %d" % num_reads
 read_max = -1
 sub_size = -1
 
-if 'read_max' in opts:
+if opts['read_max']:
 	read_max = int(opts['read_max'])
 else:
 	read_max = num_reads
 
-if 'sub_size' in opts:
+if opts['sub_size']:
 	sub_size = int(opts['sub_size'])
 else:
 	sub_size = 100000
@@ -188,7 +195,9 @@ else:
 #check that the outputs are available.
 it = ITBAMIterator(bam_file, False) #False is for debug
 
-num_subsets = read_max / sub_size
+num_subsets = 1 if read_max < sub_size else (read_max / sub_size) 
+
+## this has an error when there is only 1 sequence.
 
 prob_for_not_used = (num_reads - read_max) / float(num_reads)
 prob_for_each_subset = ((1 - prob_for_not_used) / float(num_subsets))
@@ -255,6 +264,14 @@ if not opts['skip_bam']:
 		fasta_files[i].close()
 		qual_files[i].close()
 		flow_files[i].close()	 
+
+
+if opts['term_before_align']:
+	sys.exit(0)
+
+
+(output_ref_rle, output_ref_hp_len) = prepare_reference_rle(output_dir, data_name, ref_file, log)
+segemehl_ref_index = create_segemehl_database(output_dir, output_ref_rle, log)
 
 for i in xrange(len(read_subset_dir_names)):
 	output_prefix = read_subset_dir_names[i]
